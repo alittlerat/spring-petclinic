@@ -32,7 +32,7 @@ variable "node_desired_size" {
 variable "node_instance_type" {
   description = "Typ instancji EC2 dla node'ów"
   type        = string
-  default     = "t3.medium"
+  default     = "t3.micro"
 }
 
 variable "app_replicas" {
