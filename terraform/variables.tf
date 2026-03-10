@@ -20,19 +20,19 @@ variable "node_min_size" {
 variable "node_max_size" {
   description = "Maksymalna liczba node'ów"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "node_desired_size" {
   description = "Docelowa liczba node'ów"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "node_instance_type" {
   description = "Typ instancji EC2 dla node'ów"
   type        = string
-  default     = "t3.micro"
+  default     = "t3.medium"
 }
 
 variable "app_replicas" {
