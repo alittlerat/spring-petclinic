@@ -1,4 +1,9 @@
 terraform {
+  backend "s3" {
+    bucket = "petclinic-tfstate-079760567327"
+    key    = "petclinic/terraform.tfstate"
+    region = "eu-west-1"
+  }
   required_providers {
     aws = {
       source  = "hashicorp/aws"
