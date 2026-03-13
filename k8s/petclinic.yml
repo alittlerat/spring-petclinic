@@ -10,7 +10,6 @@ spec:
       targetPort: 8080
   selector:
     app: petclinic
-
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -34,31 +33,24 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: postgres
-            - name: SERVICE_BINDING_ROOT
-              value: /bindings
-            - name: SPRING_APPLICATION_JSON
-              value: |
-                {
-                  "management.endpoint.health.probes.add-additional-paths": true
-                }
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://demo-db:5432/petclinic
+            - name: SPRING_DATASOURCE_USERNAME
+              value: user
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: pass
           ports:
             - name: http
               containerPort: 8080
           livenessProbe:
             httpGet:
-              path: /livez
+              path: /actuator/health
               port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /readyz
+              path: /actuator/health
               port: http
-          volumeMounts:
-            - mountPath: /bindings/secret
-              name: binding
-              readOnly: true
-      volumes:
-        - name: binding
-          projected:
-            sources:
-              - secret:
-                  name: demo-db
+            initialDelaySeconds: 60
+            periodSeconds: 10
