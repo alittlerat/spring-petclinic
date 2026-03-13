@@ -67,6 +67,7 @@ module "eks" {
 resource "aws_ecr_repository" "petclinic" {
   name                 = "petclinic"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   tags = {
     Project = "petclinic"
