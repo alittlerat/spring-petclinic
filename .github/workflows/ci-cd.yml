@@ -182,6 +182,19 @@ jobs:
       - name: Wait for rollout
         run: kubectl rollout status deployment/petclinic --timeout=300s
 
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install Prometheus + Grafana
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+          helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+            --namespace monitoring \
+            --create-namespace \
+            --wait \
+            --timeout 5m
+
       - name: Notify Discord - Deploy result
         if: always()
         env:
