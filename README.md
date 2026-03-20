@@ -1,6 +1,73 @@
-# Spring PetClinic — DevOps Diploma Project
+# Spring PetClinic — Projekt Dyplomowy DevOps
 
-Projekt dyplomowy z zakresu DevOps. Aplikacja [Spring PetClinic](https://github.com/spring-projects/spring-petclinic) wdrożona na infrastrukturze AWS EKS z pełnym pipeline'em CI/CD, monitoringiem oraz automatyzacją infrastruktury jako kod (IaC).
+## Opis projektu
+
+Projekt dyplomowy z zakresu DevOps realizowany na bazie aplikacji [Spring PetClinic](https://github.com/spring-projects/spring-petclinic) — przykładowej aplikacji webowej napisanej w Java Spring Boot, służącej do zarządzania kliniką weterynaryjną.
+
+Celem projektu było zbudowanie kompletnego środowiska produkcyjnego wokół istniejącej aplikacji — od automatyzacji infrastruktury, przez pipeline CI/CD, aż po monitoring. Kod aplikacji nie był modyfikowany. Całość pracy dyplomowej koncentruje się na warstwie DevOps.
+
+---
+
+## Architektura
+
+```
+Developer                GitHub                      AWS
+──────────               ──────                 ──────────────
+git push      →     GitHub Actions         →    ECR (rejestr obrazów)
+                    buduje aplikację        →    EKS (klaster Kubernetes)
+                    tworzy obraz Docker     →    Discord (powiadomienia)
+                    aktualizuje k8s         →    S3 (stan infrastruktury)
+```
+
+Infrastruktura działa na AWS w regionie `eu-west-1` (Irlandia) i składa się z:
+- **VPC** z podsieciami publicznymi i prywatnymi w dwóch strefach dostępności
+- **EKS** — zarządzany klaster Kubernetes z grupą node'ów EC2
+- **ECR** — prywatny rejestr obrazów Docker
+- **S3** — zdalny backend dla stanu Terraform (współdzielony między laptopem a pipeline'em)
+
+Aplikacja uruchomiona jest w Kubernetes jako dwa deploymenty:
+- `petclinic` — aplikacja Spring Boot (2 repliki)
+- `demo-db` — baza danych PostgreSQL
+
+---
+
+## Co zostało zrealizowane
+
+### Infrastruktura jako kod (IaC)
+Cała infrastruktura AWS opisana jest w Terraform. Postawienie środowiska od zera wymaga trzech komend (`init`, `plan`, `apply`). Infrastruktura jest idempotentna — wielokrotne wywołanie `apply` nie powoduje zmian jeśli stan jest zgodny z definicją. Stan Terraform przechowywany jest w S3, dzięki czemu jest współdzielony między lokalnym środowiskiem dewelopera a pipeline'em CI/CD.
+
+### Pipeline CI/CD
+Pipeline zbudowany w GitHub Actions realizuje dwa scenariusze:
+
+**Push na dowolną gałąź:**
+- Kompilacja aplikacji przez Maven
+- Budowanie obrazu Docker
+- Push obrazu do Amazon ECR z tagiem odpowiadającym SHA commita
+- Generowanie Terraform Plan zapisanego jako artefakt (dostępny przez 30 dni)
+- Powiadomienie na Discord o wyniku
+
+**Push na gałąź `main` — dodatkowo:**
+- Terraform Apply — aktualizacja infrastruktury
+- Automatyczna aktualizacja tagu obrazu w manifeście Kubernetes
+- Wdrożenie na EKS przez `kubectl apply`
+- Oczekiwanie na zakończenie rolling update
+- Powiadomienie na Discord o wdrożeniu
+
+### Zero Downtime Deployment
+Aplikacja uruchomiona jest w dwóch replikach. Podczas wdrożenia nowej wersji Kubernetes stosuje rolling update — zastępuje repliki jedna po drugiej, dzięki czemu aplikacja jest dostępna przez cały czas trwania deploymentu.
+
+### Monitoring
+Na klastrze zainstalowany jest `kube-prometheus-stack` przez Helm, zawierający:
+- **Prometheus** — zbieranie metryk z klastra i aplikacji
+- **Grafana** — wizualizacja metryk z gotowymi dashboardami Kubernetes
+- **Alertmanager** — zarządzanie alertami
+
+Monitoring instalowany jest automatycznie przez pipeline przy każdym wdrożeniu.
+
+### Skalowanie
+Projekt zawiera interaktywny skrypt `scale.sh` który pozwala na skalowanie infrastruktury bez ręcznej edycji plików. Skrypt pyta o typ instancji EC2, liczbę node'ów i replik aplikacji, pokazuje szacowany koszt, wykonuje `terraform plan` i pyta o potwierdzenie przed zastosowaniem zmian.
+
+---
 
 ## Stos technologiczny
 
@@ -12,10 +79,12 @@ Projekt dyplomowy z zakresu DevOps. Aplikacja [Spring PetClinic](https://github.
 | Rejestr obrazów | Amazon ECR |
 | Orkiestracja | Kubernetes (AWS EKS 1.29) |
 | Infrastruktura jako kod | Terraform |
-| Stan infrastruktury | AWS S3 (zdalny backend) |
+| Stan infrastruktury | AWS S3 |
 | CI/CD | GitHub Actions |
-| Monitoring | Prometheus + Grafana (kube-prometheus-stack) |
+| Monitoring | Prometheus + Grafana |
 | Powiadomienia | Discord webhook |
+
+---
 
 ## Struktura repozytorium
 
@@ -30,7 +99,7 @@ Pliki oznaczone 🔧 zostały stworzone w ramach projektu dyplomowego. Pozostał
 │       └── ci-cd.yml                       # Pipeline CI/CD (GitHub Actions)
 ├── 🔧 terraform/
 │   ├── main.tf                             # Definicja infrastruktury (VPC, EKS, ECR)
-│   ├── variables.tf                        # Zmienne — tutaj konfigurujesz skalowanie
+│   ├── variables.tf                        # Zmienne konfiguracyjne i skalowanie
 │   └── outputs.tf                          # Outputy Terraform (URL klastra, ECR itp.)
 ├── 🔧 k8s/
 │   ├── petclinic.yml                       # Deployment + Service aplikacji (zmodyfikowany)
@@ -40,8 +109,7 @@ Pliki oznaczone 🔧 zostały stworzone w ramach projektu dyplomowego. Pozostał
 │
 ├── docker-compose.yml                      # Lokalne uruchomienie z bazą danych
 ├── pom.xml                                 # Definicja zależności i konfiguracja Maven
-├── mvnw                                    # Maven wrapper (Linux/Mac)
-├── mvnw.cmd                                # Maven wrapper (Windows)
+├── mvnw / mvnw.cmd                         # Maven wrapper (Linux/Windows)
 ├── .mvn/                                   # Konfiguracja Maven wrapper
 └── src/                                    # Kod źródłowy aplikacji Java
     ├── main/
@@ -54,143 +122,10 @@ Pliki oznaczone 🔧 zostały stworzone w ramach projektu dyplomowego. Pozostał
         ├── java/                           # Testy jednostkowe i integracyjne
         └── jmeter/
             └── petclinic_test_plan.jmx     # Testy wydajnościowe JMeter
+
 ```
 
-## Szybki start
-
-### Wymagania
-- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0
-- [AWS CLI](https://aws.amazon.com/cli/) skonfigurowane z uprawnieniami AdministratorAccess
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [Helm](https://helm.sh/docs/intro/install/) >= 3.0
-- [Docker](https://docs.docker.com/get-docker/)
-
-### Uruchomienie lokalne (bez AWS)
-
-```bash
-docker compose up
-# Aplikacja dostępna pod: http://localhost:8080
-```
-
-### Wdrożenie na AWS
-
-#### 1. Sklonuj repozytorium
-```bash
-git clone https://github.com/alittlerat/spring-petclinic.git
-cd spring-petclinic
-```
-
-#### 2. Postaw infrastrukturę
-```bash
-cd terraform
-terraform init
-terraform apply
-```
-
-Terraform stworzy: VPC, EKS klaster (2x t3.small), ECR repozytorium, S3 backend. Czas: ~15 minut.
-
-#### 3. Skonfiguruj kubectl
-```bash
-aws eks update-kubeconfig --region eu-west-1 --name petclinic-cluster
-```
-
-#### 4. Wdróż aplikację
-```bash
-kubectl apply -f k8s/
-```
-
-#### 5. Zainstaluj monitoring
-```bash
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
-helm install monitoring prometheus-community/kube-prometheus-stack \
-  --namespace monitoring --create-namespace
-```
-
-#### 6. Zniszcz infrastrukturę
-```bash
-cd terraform
-terraform destroy
-```
-
-## Pipeline CI/CD
-
-### Każdy push (dowolna gałąź)
-1. Budowanie aplikacji (`mvn package`)
-2. Budowanie obrazu Docker
-3. Push obrazu do Amazon ECR
-4. Terraform Plan — zapisany jako artefakt (30 dni)
-5. Powiadomienie Discord o wyniku
-
-### Push na `main` — dodatkowo
-6. Terraform Apply — aktualizacja infrastruktury
-7. Deploy na EKS (`kubectl apply`)
-8. Auto-update tagu obrazu w `k8s/petclinic.yml`
-9. Instalacja/aktualizacja monitoringu przez Helm
-10. Oczekiwanie na rollout (`kubectl rollout status`)
-11. Powiadomienie Discord o wdrożeniu
-
-## Skalowanie
-
-Użyj interaktywnego skryptu:
-
-```bash
-./scale.sh
-```
-
-Skrypt pyta o typ instancji, liczbę node'ów i replik, pokazuje szacowany koszt, wykonuje `terraform plan` i pyta czy zastosować zmiany.
-
-Parametry skalowania w `terraform/variables.tf`:
-
-| Zmienna | Domyślna wartość | Opis |
-|---|---|---|
-| `node_desired_size` | 1 | Docelowa liczba node'ów EKS |
-| `node_min_size` | 1 | Minimalna liczba node'ów |
-| `node_max_size` | 2 | Maksymalna liczba node'ów |
-| `node_instance_type` | t3.small | Typ instancji EC2 |
-| `app_replicas` | 2 | Liczba replik aplikacji w Kubernetes |
-
-## Monitoring
-
-Prometheus + Grafana instalowane automatycznie przez pipeline przy każdym wdrożeniu.
-
-Dostęp do Grafany:
-```bash
-export POD_NAME=$(kubectl --namespace monitoring get pod \
-  -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=monitoring" -oname)
-kubectl --namespace monitoring port-forward $POD_NAME 3000
-
-# Otwórz: http://localhost:3000  (login: admin)
-# Hasło:
-kubectl --namespace monitoring get secrets monitoring-grafana \
-  -o jsonpath="{.data.admin-password}" | base64 -d
-```
-
-Dostępne dashboardy:
-- `Kubernetes / Compute Resources / Cluster` — ogólny stan klastra
-- `Kubernetes / Compute Resources / Pod` — szczegóły podów
-- `Kubernetes / Compute Resources / Node (Pods)` — zużycie zasobów na node'ach
-
-## Weryfikacja ciągłości działania (zero downtime)
-
-```bash
-# Terminal 1 — port-forward
-kubectl port-forward svc/petclinic 8888:80
-
-# Terminal 2 — monitoring HTTP
-while true; do
-  echo "$(date '+%H:%M:%S') - $(curl -s -o /dev/null -w '%{http_code}' http://localhost:8888)"
-  sleep 2
-done
-```
-
-Podczas rolling update aplikacja zawsze zwraca `200` dzięki 2 repliком.
-
-## Testy wydajnościowe
-
-```bash
-jmeter -n -t src/test/jmeter/petclinic_test_plan.jmx -l results.jtl
-```
+---
 
 ## Szacowane koszty AWS
 
@@ -199,3 +134,5 @@ jmeter -n -t src/test/jmeter/petclinic_test_plan.jmx -l results.jtl
 | Development (klaster wyłączony) | ~$0/dzień |
 | Klaster włączony (2x t3.small) | ~$3/dzień |
 | Prezentacja (1-2 dni) | ~$6 łącznie |
+
+Infrastruktura może być w całości zniszczona jedną komendą (`terraform destroy`) i postawiona od nowa przed prezentacją.
