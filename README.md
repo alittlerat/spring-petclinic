@@ -8,35 +8,6 @@ Celem projektu było zbudowanie kompletnego środowiska produkcyjnego wokół is
 
 ---
 
-## Zrealizowane wymagania
-
-### Obowiązkowe ✅
-
-| Wymaganie | Realizacja |
-|---|---|
-| Repozytorium z kodem aplikacji | Spring PetClinic (Java Spring Boot) |
-| Infrastruktura jako kod (IaC) | Terraform — VPC, EKS, ECR, S3 backend |
-| IaC idempotentna | `terraform apply` można wywołać wielokrotnie |
-| IaC od zera w kilku komendach | `terraform init` + `terraform apply` |
-| CI — budowanie na każdym branchu | GitHub Actions — `mvn package` + Docker build |
-| CI — publikacja artefaktów | Push obrazu Docker do Amazon ECR |
-| CD — deployment na main | `kubectl apply` na AWS EKS |
-| Powiadomienia | Discord webhook — build i deploy |
-| Dokumentacja | README z opisem projektu i struktury |
-| Monitoring | Prometheus + Grafana (kube-prometheus-stack) |
-
-### Opcjonalne ✅
-
-| Ulepszenie | Realizacja |
-|---|---|
-| Konteneryzacja | Docker (multi-stage build) |
-| Orkiestracja | Kubernetes (AWS EKS 1.29) |
-| Skalowalność | 2 repliki aplikacji, rolling update |
-| Testy wydajnościowe | JMeter (`src/test/jmeter/`) |
-| Pełna automatyzacja | Monitoring instalowany automatycznie przez pipeline |
-
----
-
 ## Architektura
 
 ```
@@ -72,12 +43,6 @@ Wszystkie dane wrażliwe przechowywane są jako **GitHub Secrets** i nigdy nie t
 | `AWS_SECRET_ACCESS_KEY` | Sekretny klucz AWS |
 | `DISCORD_WEBHOOK_URL` | URL webhooka Discord |
 
-W pipeline odwoływanie się do sekretów wygląda następująco:
-```yaml
-env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-```
 
 Dodatkowo plik `.gitignore` wyklucza z repozytorium:
 - `terraform/.terraform/` — lokalne moduły Terraform
@@ -276,4 +241,4 @@ Pliki oznaczone 🔧 zostały stworzone w ramach projektu dyplomowego. Pozostał
 | Klaster włączony (2x t3.small) | ~$3/dzień |
 | Prezentacja (1-2 dni) | ~$6 łącznie |
 
-Infrastruktura może być w całości zniszczona jedną komendą (`terraform destroy`) i postawiona od nowa przed prezentacją (`terraform apply`).
+Infrastruktura może być w całości zniszczona jedną komendą (`terraform destroy`) i postawiona od nowa (`terraform apply`).
