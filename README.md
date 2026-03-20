@@ -135,4 +135,4 @@ Pliki oznaczone 🔧 zostały stworzone w ramach projektu dyplomowego. Pozostał
 | Klaster włączony (2x t3.small) | ~$3/dzień |
 | Prezentacja (1-2 dni) | ~$6 łącznie |
 
-Infrastruktura może być w całości zniszczona jedną komendą (`terraform destroy`) i postawiona od nowa przed prezentacją.
+Infrastruktura może być w całości zniszczona jedną komendą (`terraform destroy`) i postawiona od nowa.
